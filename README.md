@@ -107,85 +107,85 @@ presses a button and gets the answer to the question. Easy! ... and clever if yo
 The HTML markup for the application would look something like this:
 
 ```html
-  <!-- grandfather.html -->
+<!-- grandfather.html -->
 
-  <body ng-app="GrandfatherOfAllKnowledgeApp">
-    <div class="question">
-      <input class="question__field" ng-model="question.text"
-             placeholder="What would you like to ask Grandfather of all knowledge?">
-      <button class="question__button" ng-click="answerQuestion()"
-              ng-disabled="!question.text">?</button>
-    </div>
-    <div class="answer">{{answer}}</div>
-  </body>
+<body ng-app="GrandfatherOfAllKnowledgeApp">
+  <div class="question">
+    <input class="question__field" ng-model="question.text"
+           placeholder="What would you like to ask Grandfather of all knowledge?">
+    <button class="question-button" ng-click="answerQuestion()"
+            ng-disabled="!question.text">?</button>
+  </div>
+  <div class="answer">{{answer}}</div>
+</body>
   ```
 
 The e2e tests in this case should cover exactly the interaction we described earlier: user enters question, presses
 button and gets an answer. They would look something like this:
 
 ```javascript
-  /* grandfatherSpec.js */
+/* grandfatherSpec.js */
 
-  describe("The grandfather of all knowledge module", function() {
+describe("The grandfather of all knowledge module", function() {
 
-      beforeEach(function() {
-          browser.get('/#/grandfather-of-all-knowledge');
-      });
-
-      it('should answer any question', function() {
-          var question = element(by.model('question.text'));
-          var answer = element(by.binding('answer'));
-          var button = element(by.className('question__button'));
-
-          question.sendKeys("What is the purpose of meaning?");
-          button.click();
-          expect(answer.getText()).toEqual("Chocolate!");
-      });
-
-      it('should not answer empty questions', function() {
-          var question = element(by.model('question.text'));
-          var answer = element(by.binding('answer'));
-          var button = element(by.className('question__button'));
-
-          question.sendKeys("    ");
-          expect(button.isEnabled()).toBeFalsy();
-      });
+  beforeEach(function() {
+    browser.get('/#/grandfather-of-all-knowledge');
   });
+
+  it('should answer any question', function() {
+    var question = element(by.model('question.text'));
+    var answer = element(by.binding('answer'));
+    var button = element(by.css('.question-button'));
+
+    question.sendKeys("What is the purpose of meaning?");
+    button.click();
+    expect(answer.getText()).toEqual("Chocolate!");
+  });
+
+  it('should not answer empty questions', function() {
+    var question = element(by.model('question.text'));
+    var answer = element(by.binding('answer'));
+    var button = element(by.css('.question-button'));
+
+    question.sendKeys("    ");
+    expect(button.isEnabled()).toBeFalsy();
+  });
+});
 ```
 
 Now, the fact that we are declaring the question/answer/button elements in each spec, adds a lot of duplicate code to our
 tests, and as we all know, duplicate code means we're doing something not quite right. Let's fix that!
 
 ```javascript
-  /* grandfatherSpec.js */
+/* grandfatherSpec.js */
 
-  describe("The grandfather of all knowledge module", function() {
+describe("The grandfather of all knowledge module", function() {
 
-      var question = element(by.model('question.text'));
-      var answer = element(by.binding('answer'));
-      var button = element(by.className('question__button'));
+  var question = element(by.model('question.text'));
+  var answer = element(by.binding('answer'));
+  var button = element(by.css('.question-button'));
 
-      beforeEach(function() {
-          browser.get('/#/grandfather-of-all-knowledge');
-      });
-
-      it('should answer any question', function() {
-          question.sendKeys("What is the purpose of meaning?");
-          button.click();
-          expect(answer.getText()).toEqual("Chocolate!");
-      });
-
-      it('should not answer empty questions', function() {
-          question.sendKeys("    ");
-          expect(button.isEnabled()).toBeFalsy();
-      });
+  beforeEach(function() {
+    browser.get('/#/grandfather-of-all-knowledge');
   });
+
+  it('should answer any question', function() {
+    question.sendKeys("What is the purpose of meaning?");
+    button.click();
+    expect(answer.getText()).toEqual("Chocolate!");
+  });
+
+  it('should not answer empty questions', function() {
+    question.sendKeys("    ");
+    expect(button.isEnabled()).toBeFalsy();
+  });
+});
 ```
 
 This is already better, but we can do even better than that. If you look at the tests we wrote, notice that they are
 dealing with multiple concerns at the same time: keeping track of the page under test, selecting elements from that page,
 defining the interaction with these elements, making the assertions and so on. Furthermore, imagine that the markup of
-the tested page changes, so for instance the class of our button would change from "question__button" to just simply
+the tested page changes, so for instance the class of our button would change from "question-button" to just simply
 "button". This would mean that we would have to revisit all the places in our tests where we declared the button and make
 sure its selector uses the correct class name. For large code bases, but not even, this is simply not maintainable and
 for sure not something you want to worry about.
@@ -199,48 +199,50 @@ do anything and see anything the user can [(7)](#page-objects-1).
 Coming back to our Grandfather of all Knowledge application, let's see how a Page Object would look like:
 
 ```javascript
-  /* grandfatherPageObject.js */
+/* grandfatherPageObject.js */
 
-  var GrandfatherOfAllKnowledge = function() {
-      this.question = element(by.model('question.text'));
-      this.answer = element(by.binding('answer'));
-      this.button = element(by.className('question__button'));
+var GrandfatherOfAllKnowledge = function() {
+  this.question = element(by.model('question.text'));
+  this.answer = element(by.binding('answer'));
+  this.button = element(by.css('.question-button'));
+};
 
-      this.askQuestion = function(question) {
-          this.question.sendKeys(question);
-          this.button.click();
-      };
+GrandfatherOfAllKnowledge.prototype.askQuestion = function(question) {
+  this.question.sendKeys(question);
+  this.button.click();  
+};
 
-      this.getAnswer = function() {
-          return this.answer.getText();
-      };
-  };
+GrandfatherOfAllKnowledge.prototype.getAnswer = function() {
+  return this.answer.getText();
+}
+
+module.exports = GrandfatherOfAllKnowledge;
 ```
 
 ```javascript
-  /* grandfatherSpec.js */
+/* grandfatherSpec.js */
 
-  var GrandfatherOfAllKnowledge = require('./grandfatherPageObject');
+var GrandfatherOfAllKnowledge = require('./grandfatherPageObject');
 
-  describe("The grandfather of all knowledge module", function() {
+describe("The grandfather of all knowledge module", function() {
 
-      var grandfatherOfAllKnowledge = new GrandfatherOfAllKnowledge();
+  var grandfatherOfAllKnowledge = new GrandfatherOfAllKnowledge();
 
-      beforeEach(function() {
-          browser.get('/#/grandfather-of-all-knowledge');
-      });
-
-      it('should answer any question', function() {
-          grandfatherOfAllKnowledge.askQuestion("What is the purpose of meaning?");
-          expect(grandfatherOfAllKnowledge.getAnswer()).toEqual("Chocolate!");
-      });
-
-      it('should not answer empty questions', function() {
-          grandfatherOfAllKnowledge.askQuestion("    ");
-          expect(grandfatherOfAllKnowledge.getAnswer()).toEqual("");
-          expect(grandfatherOfAllKnowledge.button.isEnabled()).toBeFalsy();
-      });
+  beforeEach(function() {
+    browser.get('/#/grandfather-of-all-knowledge');
   });
+
+  it('should answer any question', function() {
+    grandfatherOfAllKnowledge.askQuestion("What is the purpose of meaning?");
+    expect(grandfatherOfAllKnowledge.getAnswer()).toEqual("Chocolate!");
+  });
+
+  it('should not answer empty questions', function() {
+    grandfatherOfAllKnowledge.askQuestion("    ");
+    expect(grandfatherOfAllKnowledge.getAnswer()).toEqual("");
+    expect(grandfatherOfAllKnowledge.button.isEnabled()).toBeFalsy();
+  });
+});
 ```
 
 Much cleaner right? So now, with a proper Page Object in place, we can just focus on writing our tests, without worrying
@@ -470,7 +472,7 @@ With these basic concepts out of the way, time for some Page Object related best
   * Do not add any assertions in your Page Object definitions.
 
   **Why?:** Because, as Martin Fowler puts it:
-  
+
     *Page objects are commonly used for testing, but should not make assertions themselves. Their responsibility is to
     provide access to the state of the underlying page. It's up to test clients to carry out the assertion logic.*
 
